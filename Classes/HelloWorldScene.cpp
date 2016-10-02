@@ -99,7 +99,7 @@ bool HelloWorld::init()
         player1 = createBall(r1, PhysicsMaterial(0.f, 0.5f, 0.f));
         player1->setPosition(Vec2(visibleSize.width/2.f, r1+50.f));
         this->addChild(player1);
-        player1->getPhysicsBody()->setLinearDamping(0.8f);
+        player1->getPhysicsBody()->setLinearDamping(0.3f);
     }
     
     {
@@ -108,7 +108,7 @@ bool HelloWorld::init()
         player2 = createBall(r2, PhysicsMaterial(0.f, 0.5f, 0.f));
         player2->setPosition(Vec2(visibleSize.width/2.f-2*r2-5, r2+50.f));
         this->addChild(player2);
-        player2->getPhysicsBody()->setLinearDamping(0.8f);
+        player2->getPhysicsBody()->setLinearDamping(0.3f);
     }
     
     this->scheduleUpdate();
@@ -124,14 +124,16 @@ void HelloWorld::update(float delta)
     if (v1.x > MV || v1.x < -MV ||
         v1.y > MV || v1.y < -MV) {
     } else if(v1 != Vec2(0,0)) {
-        player1->getPhysicsBody()->setVelocity(Vec2(0,0));
+        //player1->getPhysicsBody()->setVelocity(Vec2(0,0));
+        player1->getPhysicsBody()->setDynamic(false);
         CCLOG("sx 1 : %f %f",v1.x,v1.y);
     }
     
     if (v2.x > MV || v2.x < -MV ||
         v2.y > MV || v2.y < -MV) {
     } else if(v2 != Vec2(0,0)) {
-        player2->getPhysicsBody()->setVelocity(Vec2(0,0));
+        //player2->getPhysicsBody()->setVelocity(Vec2(0,0));
+        player2->getPhysicsBody()->setDynamic(false);
         CCLOG("sx 2 : %f %f",v2.x,v2.y);
     }
 }
@@ -139,10 +141,20 @@ void HelloWorld::update(float delta)
 void HelloWorld::menuMoveBallsCallback(Ref* pSender)
 {
     CCLOG("start moving balls");
+    
+    auto x = 100.f, y = -10.f;
+    auto hypotenuse = sqrtf(x*x+y*y);
+    auto angle = 90.f;
+    if (0.f != x) {
+        angle = CC_RADIANS_TO_DEGREES(atanf(y/x));
+    }
+    
     //move player1
-    moveToWithVelocity(player1, -40.f, 300.f);
+    player1->getPhysicsBody()->setDynamic(true);
+    moveToWithVelocity(player1, angle, hypotenuse);
     
     //move player2
-    moveToWithVelocity(player2, 0.f, 200.f);
+    player2->getPhysicsBody()->setDynamic(true);
+    moveToWithVelocity(player2, angle, hypotenuse);
 }
 
