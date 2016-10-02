@@ -22,6 +22,8 @@ public:
     @return false   Initialize failed, app terminate.
     */
     virtual bool applicationDidFinishLaunching();
+    
+    void setupResolutionPolicy();
 
     /**
     @brief  Called when the application moves to the background

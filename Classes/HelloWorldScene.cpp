@@ -3,10 +3,16 @@
 
 USING_NS_CC;
 
+enum {
+    kBallCollisionGroup = 10
+};
+
 Scene* HelloWorld::createScene()
 {
     // 'scene' is an autorelease object
-    auto scene = Scene::create();
+    auto scene = Scene::createWithPhysics();
+    
+    scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
     
     // 'layer' is an autorelease object
     auto layer = HelloWorld::create();
@@ -16,6 +22,25 @@ Scene* HelloWorld::createScene()
 
     // return the scene
     return scene;
+}
+
+//function for moving balls
+void moveToWithVelocity(cocos2d::Node * ballNode, const float & directionAngleInDegrees, const float & absoluteVelocity)
+{
+    auto body = ballNode->getPhysicsBody();
+    
+    auto mass = body->getMass();
+    auto currentVelocity = body->getVelocity();
+    auto targetVelocity = Vec2::forAngle(CC_DEGREES_TO_RADIANS(directionAngleInDegrees))*absoluteVelocity;
+    
+    body->applyImpulse(mass*(targetVelocity-currentVelocity));
+};
+
+HelloWorld::HelloWorld():
+player1(nullptr),
+player2(nullptr)
+{
+    
 }
 
 // on "init" you need to initialize your instance
@@ -28,68 +53,96 @@ bool HelloWorld::init()
         return false;
     }
     
-    auto visibleSize = Director::getInstance()->getVisibleSize();
-    Vec2 origin = Director::getInstance()->getVisibleOrigin();
-
+    const auto visibleSize = Director::getInstance()->getVisibleSize();
+    const Vec2 origin = Director::getInstance()->getVisibleOrigin();
+    
     /////////////////////////////
-    // 2. add a menu item with "X" image, which is clicked to quit the program
+    // 2. add a menu item with "X" image, which is clicked to start moving objects
     //    you may modify it.
-
+    
     // add a "close" icon to exit the progress. it's an autorelease object
     auto closeItem = MenuItemImage::create(
                                            "CloseNormal.png",
                                            "CloseSelected.png",
-                                           CC_CALLBACK_1(HelloWorld::menuCloseCallback, this));
+                                           CC_CALLBACK_1(HelloWorld::menuMoveBallsCallback, this));
     
-    closeItem->setPosition(Vec2(origin.x + visibleSize.width - closeItem->getContentSize().width/2 ,
-                                origin.y + closeItem->getContentSize().height/2));
-
+    closeItem->setPosition(Vec2(origin.x + visibleSize.width - closeItem->getContentSize().width,
+                                origin.y + visibleSize.height - closeItem->getContentSize().height));
+    
     // create menu, it's an autorelease object
     auto menu = Menu::create(closeItem, NULL);
     menu->setPosition(Vec2::ZERO);
     this->addChild(menu, 1);
-
-    /////////////////////////////
-    // 3. add your codes below...
-
-    // add a label shows "Hello World"
-    // create and initialize a label
     
-    auto label = Label::createWithTTF("Hello World", "fonts/Marker Felt.ttf", 24);
+    //creating screen box
+    auto pStaticBoxBody = PhysicsBody::createEdgeBox(visibleSize, PhysicsMaterial(0.f, 0.5f, 0.f), 2.f);
+    pStaticBoxBody->setMoment(PHYSICS_INFINITY);
+    pStaticBoxBody->setMass(PHYSICS_INFINITY);
+    pStaticBoxBody->setDynamic(false);
+    this->setPhysicsBody(pStaticBoxBody);
     
-    // position the label on the center of the screen
-    label->setPosition(Vec2(origin.x + visibleSize.width/2,
-                            origin.y + visibleSize.height - label->getContentSize().height));
-
-    // add the label as a child to this layer
-    this->addChild(label, 1);
-
-    // add "HelloWorld" splash screen"
-    auto sprite = Sprite::create("HelloWorld.png");
-
-    // position the sprite on the center of the screen
-    sprite->setPosition(Vec2(visibleSize.width/2 + origin.x, visibleSize.height/2 + origin.y));
-
-    // add the sprite as a child to this layer
-    this->addChild(sprite, 0);
+    //lambda for creating balls
+    auto createBall = [](float radius, const PhysicsMaterial& material = PHYSICSBODY_MATERIAL_DEFAULT) -> Node* {
+        auto ballNode = Node::create();
+        ballNode->setAnchorPoint(Vec2::ANCHOR_MIDDLE);
+        auto ballBody = PhysicsBody::createCircle(radius, material);
+        ballBody->setGroup(kBallCollisionGroup);
+        ballBody->setGravityEnable(false);
+        ballBody->setRotationEnable(false);
+        ballNode->setPhysicsBody(ballBody);
+        return ballNode;
+    };
+    
+    {
+        //create player1
+        const auto r1 = 100.f;
+        player1 = createBall(r1, PhysicsMaterial(0.f, 0.5f, 0.f));
+        player1->setPosition(Vec2(visibleSize.width/2.f, r1+50.f));
+        this->addChild(player1);
+        player1->getPhysicsBody()->setLinearDamping(0.8f);
+    }
+    
+    {
+        //create player2
+        const auto r2 = 100.f;
+        player2 = createBall(r2, PhysicsMaterial(0.f, 0.5f, 0.f));
+        player2->setPosition(Vec2(visibleSize.width/2.f-2*r2-5, r2+50.f));
+        this->addChild(player2);
+        player2->getPhysicsBody()->setLinearDamping(0.8f);
+    }
+    
+    this->scheduleUpdate();
     
     return true;
 }
 
-
-void HelloWorld::menuCloseCallback(Ref* pSender)
+void HelloWorld::update(float delta)
 {
-    //Close the cocos2d-x game scene and quit the application
-    Director::getInstance()->end();
-
-    #if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
-    exit(0);
-#endif
+    auto MV = 15;
+    auto v1 = player1->getPhysicsBody()->getVelocity();
+    auto v2 = player2->getPhysicsBody()->getVelocity();
+    if (v1.x > MV || v1.x < -MV ||
+        v1.y > MV || v1.y < -MV) {
+    } else if(v1 != Vec2(0,0)) {
+        player1->getPhysicsBody()->setVelocity(Vec2(0,0));
+        CCLOG("sx 1 : %f %f",v1.x,v1.y);
+    }
     
-    /*To navigate back to native iOS screen(if present) without quitting the application  ,do not use Director::getInstance()->end() and exit(0) as given above,instead trigger a custom event created in RootViewController.mm as below*/
-    
-    //EventCustom customEndEvent("game_scene_close_event");
-    //_eventDispatcher->dispatchEvent(&customEndEvent);
-    
-    
+    if (v2.x > MV || v2.x < -MV ||
+        v2.y > MV || v2.y < -MV) {
+    } else if(v2 != Vec2(0,0)) {
+        player2->getPhysicsBody()->setVelocity(Vec2(0,0));
+        CCLOG("sx 2 : %f %f",v2.x,v2.y);
+    }
 }
+
+void HelloWorld::menuMoveBallsCallback(Ref* pSender)
+{
+    CCLOG("start moving balls");
+    //move player1
+    moveToWithVelocity(player1, -40.f, 300.f);
+    
+    //move player2
+    moveToWithVelocity(player2, 0.f, 200.f);
+}
+
